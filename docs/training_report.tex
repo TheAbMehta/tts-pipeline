@@ -20,8 +20,11 @@
 \usepackage{listings}
 \usepackage{fancyhdr}
 \usepackage{multirow}
+\usepackage{multicol}
 
 \pgfplotsset{compat=1.18}
+\tolerance=1000
+\emergencystretch=1em
 
 \hypersetup{
     colorlinks=true,
@@ -61,8 +64,15 @@
 \noindent We describe the end-to-end training and deployment of a VITS text-to-speech model that runs entirely in the browser via WebAssembly. Using the Piper TTS training framework on the LJSpeech dataset (13,100 utterances, $\sim$24 hours of single-speaker English), we trained a medium-quality model on 2$\times$ NVIDIA A100-SXM4-40GB GPUs via DDP for 10,000 steps ($\sim$3 hours, $\sim$\$14 in GCP spot costs). The resulting model was exported to ONNX format (61\,MB FP32, 19\,MB INT8) and bundled into a Sherpa-ONNX WASM build for client-side inference with no backend server. On desktop CPU, the model achieves a real-time factor of 0.074 (13.5$\times$ faster than real-time); in the browser via WASM, RTF is 0.47. We report training dynamics, loss curves, measured inference benchmarks, deployment results, and an honest account of what worked, what broke, and where the approach falls short.
 \end{abstract}
 
-\newpage
+\vspace{1em}
+\hrule
+\vspace{0.5em}
+\begin{multicols}{2}
+\small
 \tableofcontents
+\end{multicols}
+\vspace{0.5em}
+\hrule
 \newpage
 
 \twocolumn
@@ -159,17 +169,19 @@ Training was conducted on a Google Cloud Platform (GCP) spot instance:
 
 \begin{table}[ht]
 \centering
-\begin{tabular}{@{}ll@{}}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.8cm}p{3.0cm}@{}}
 \toprule
 Component & Specification \\
 \midrule
-Machine type & \texttt{a2-highgpu-2g} \\
-GPU & 2$\times$ NVIDIA A100-SXM4-40GB \\
-CPU & Intel Xeon @ 2.20\,GHz (24 vCPUs) \\
+Machine & \texttt{a2-highgpu-2g} \\
+GPU & 2$\times$ A100-SXM4-40GB \\
+CPU & Xeon 2.20\,GHz (24 vCPU) \\
 RAM & 168\,GB \\
-Disk & 200\,GB SSD (pd-ssd) \\
-Region / Zone & \texttt{us-central1-a} \\
-Provisioning & Spot (preemptible) \\
+Disk & 200\,GB SSD \\
+Region & \texttt{us-central1-a} \\
+Provision & Spot (preemptible) \\
 Driver & NVIDIA 570.211.01 \\
 \bottomrule
 \end{tabular}
@@ -181,16 +193,18 @@ Driver & NVIDIA 570.211.01 \\
 
 \begin{table}[ht]
 \centering
-\begin{tabular}{@{}ll@{}}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{2.2cm}l@{}}
 \toprule
 Package & Version \\
 \midrule
 Python & 3.10.12 \\
 PyTorch & 2.7.1+cu126 \\
-PyTorch Lightning & 1.7.7 (patched) \\
-piper-train & 1.0.0 (commit \texttt{2023.11.14-2}) \\
+PT Lightning & 1.7.7 (patched) \\
+piper-train & 1.0.0 \\
 piper-phonemize & 1.1.0 \\
-eSpeak-NG & system package \\
+eSpeak-NG & system pkg \\
 ONNX Runtime & 1.23.2 (GPU) \\
 Sherpa-ONNX & 1.12.35 \\
 \bottomrule
@@ -204,15 +218,15 @@ Sherpa-ONNX & 1.12.35 \\
 Several compatibility issues were encountered and resolved during setup:
 
 \begin{enumerate}
-    \item \textbf{PyTorch version mismatch}: \texttt{piper-train} pins \texttt{torch<2}, but the GCP Deep Learning VM ships PyTorch 2.7. We installed \texttt{piper-train} with \texttt{--no-deps} and used the pre-installed PyTorch 2.7, which proved functionally compatible.
+    \item \textbf{PyTorch version mismatch}: \texttt{piper\hbox{-}train} pins \texttt{torch<2}, but the GCP Deep Learning VM ships PyTorch~2.7. We installed it with \texttt{-{}-no-deps} and used the pre-installed PyTorch~2.7, which proved compatible.
 
-    \item \textbf{Cython extension build}: The monotonic alignment module (\texttt{monotonic\_align}) required manual Cython compilation and relocation of the resulting \texttt{.so} file to the correct package path.
+    \item \textbf{Cython extension build}: The monotonic alignment module (\texttt{monotonic\_\allowbreak{}align}) required manual Cython compilation and relocation of the resulting \texttt{.so} file.
 
-    \item \textbf{LR scheduler validation}: PyTorch Lightning 1.7.7's strict scheduler API validation rejected PyTorch 2.7's \texttt{ExponentialLR}. We patched \texttt{pytorch\_lightning/core/optimizer.py} to downgrade the error to a warning.
+    \item \textbf{LR scheduler validation}: Lightning~1.7.7's strict scheduler API validation rejected PyTorch~2.7's \texttt{ExponentialLR}. We patched the optimizer module to downgrade the error to a warning.
 
-    \item \textbf{CUDA shared libraries}: The \texttt{libcusparseLt.so.0} and \texttt{libnccl.so.2} libraries were installed but not on \texttt{LD\_LIBRARY\_PATH}. Resolved by explicitly adding NVIDIA package library paths.
+    \item \textbf{CUDA shared libraries}: \texttt{libcusparseLt.so.0} and \texttt{libnccl.so.2} were installed but not on \texttt{LD\_LIBRARY\_PATH}. Fixed by adding NVIDIA library paths.
 
-    \item \textbf{DDP serialization}: Initial multi-GPU training via DDP with the \texttt{spawn} start method failed due to a tensor serialization error in PyTorch 2.7. Switching to the \texttt{ddp} strategy (fork-based) resolved this.
+    \item \textbf{DDP serialization}: Multi-GPU training via DDP with the \texttt{spawn} start method failed on PyTorch~2.7. Switching to the \texttt{ddp} strategy (fork-based) resolved this.
 \end{enumerate}
 
 %% ============================================================
@@ -244,21 +258,23 @@ Sample rate & 22,050\,Hz \\
 
 \begin{table}[ht]
 \centering
-\begin{tabular}{@{}ll@{}}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{2.3cm}l@{}}
 \toprule
 Parameter & Value \\
 \midrule
-Batch size (per GPU) & 64 \\
-Effective batch size & 128 (2 GPUs $\times$ 64) \\
-Max training steps & 10,000 \\
+Batch size / GPU & 64 \\
+Effective batch & 128 (2$\times$64) \\
+Max steps & 10,000 \\
 Validation split & 1\% \\
-Steps per epoch & $\sim$102 \\
+Steps / epoch & $\sim$102 \\
 Total epochs & $\sim$98 \\
 Optimizer & AdamW \\
-LR scheduler & ExponentialLR ($\gamma = 0.999$) \\
+LR scheduler & ExpLR ($\gamma\!=\!0.999$) \\
 Precision & FP32 \\
 Strategy & DDP (2 GPUs) \\
-Checkpoint interval & Every 10 epochs \\
+Checkpoint freq. & Every 10 epochs \\
 Random seed & 1234 \\
 \bottomrule
 \end{tabular}
@@ -401,26 +417,27 @@ Table~\ref{tab:training_log} presents the complete training log at validation ch
 
 \begin{table}[ht]
 \centering
-\small
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{@{}rrrrrr@{}}
 \toprule
-\textbf{Step} & \textbf{Epoch} & \textbf{Elapsed (min)} & \textbf{$\mathcal{L}_G$} & \textbf{$\mathcal{L}_D$} & \textbf{$\mathcal{L}_{\text{val}}$} \\
+\textbf{Step} & \textbf{Ep.} & \textbf{Min.} & $\mathcal{L}_G$ & $\mathcal{L}_D$ & $\mathcal{L}_{\text{val}}$ \\
 \midrule
-101  & 0  & 2.80  & 49.85 & 1.98 & 51.83 \\
-203  & 1  & 4.66  & 47.29 & 1.82 & 49.11 \\
-305  & 2  & 6.46  & 49.74 & 1.51 & 51.25 \\
-407  & 3  & 8.18  & 51.40 & 1.61 & 53.00 \\
-509  & 4  & 9.86  & 48.63 & 1.49 & 50.12 \\
-611  & 5  & 11.53 & 44.50 & 2.08 & 46.58 \\
-713  & 6  & 13.23 & 45.66 & 2.14 & 47.79 \\
-815  & 7  & 14.90 & 49.84 & 1.89 & 51.72 \\
-917  & 8  & 16.58 & 43.47 & 2.46 & 45.92 \\
-1019 & 9  & 18.24 & 43.95 & 2.05 & 46.00 \\
-1121 & 10 & 19.97 & 43.50 & 2.08 & 45.58 \\
-1223 & 11 & 21.63 & 44.18 & 1.71 & 45.89 \\
+101  & 0  & 2.8  & 49.85 & 1.98 & 51.83 \\
+203  & 1  & 4.7  & 47.29 & 1.82 & 49.11 \\
+305  & 2  & 6.5  & 49.74 & 1.51 & 51.25 \\
+407  & 3  & 8.2  & 51.40 & 1.61 & 53.00 \\
+509  & 4  & 9.9  & 48.63 & 1.49 & 50.12 \\
+611  & 5  & 11.5 & 44.50 & 2.08 & 46.58 \\
+713  & 6  & 13.2 & 45.66 & 2.14 & 47.79 \\
+815  & 7  & 14.9 & 49.84 & 1.89 & 51.72 \\
+917  & 8  & 16.6 & 43.47 & 2.46 & 45.92 \\
+1019 & 9  & 18.2 & 43.95 & 2.05 & 46.00 \\
+1121 & 10 & 20.0 & 43.50 & 2.08 & 45.58 \\
+1223 & 11 & 21.6 & 44.18 & 1.71 & 45.89 \\
 \bottomrule
 \end{tabular}
-\caption{Training metrics at each validation checkpoint. $\mathcal{L}_G$ is the total generator loss, $\mathcal{L}_D$ is the discriminator loss, and $\mathcal{L}_{\text{val}}$ is the validation generator loss.}
+\caption{Training metrics at each validation checkpoint. Ep.\ = epoch, Min.\ = elapsed minutes.}
 \label{tab:training_log}
 \end{table}
 
@@ -428,18 +445,20 @@ Table~\ref{tab:training_log} presents the complete training log at validation ch
 
 \begin{table}[ht]
 \centering
-\begin{tabular}{@{}ll@{}}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{2.3cm}l@{}}
 \toprule
 Metric & Value \\
 \midrule
-Training throughput & 56.5 steps/min \\
+Throughput & 56.5 steps/min \\
 Eff.\ samples/sec & $\sim$120 \\
-GPU memory (GPU 0) & 26.7\,GB / 40\,GB \\
-GPU memory (GPU 1) & 33.0\,GB / 40\,GB \\
+GPU mem (GPU 0) & 26.7 / 40\,GB \\
+GPU mem (GPU 1) & 33.0 / 40\,GB \\
 GPU utilization & 93--100\% \\
-Time per epoch & $\sim$1.8 min \\
-Estimated total time & $\sim$3.0 hours (10,000 steps) \\
-Estimated cost & $\sim$\$13.50 (spot @ \$4.50/hr) \\
+Time / epoch & $\sim$1.8 min \\
+Est.\ total time & $\sim$3.0 hrs (10K steps) \\
+Est.\ cost & \$13.50 (spot) \\
 \bottomrule
 \end{tabular}
 \caption{Training performance metrics.}
@@ -502,9 +521,9 @@ Output: \texttt{dataset.jsonl} with 13,100 entries, phoneme ID map, and cached s
 After training completes:
 
 \begin{enumerate}
-    \item \textbf{ONNX Export}: \texttt{piper\_train.export\_onnx} converts the PyTorch checkpoint to ONNX format, producing \texttt{model.onnx} ($\sim$60\,MB FP32) and an accompanying \texttt{model.onnx.json} configuration file containing the phoneme ID map, inference parameters, and audio configuration.
+    \item \textbf{ONNX Export}: \texttt{piper\_train.\allowbreak{}export\_onnx} converts the PyTorch checkpoint to ONNX format, producing \texttt{model.onnx} ($\sim$60\,MB FP32) and an accompanying config JSON with the phoneme ID map, inference parameters, and audio configuration.
 
-    \item \textbf{INT8 Quantization}: Dynamic INT8 quantization via \texttt{onnxruntime.quantization.quantize\_dynamic} reduces the model to 19\,MB (30.4\% of FP32), a $3.2\times$ compression with minimal quality degradation for TTS workloads.
+    \item \textbf{INT8 Quantization}: Dynamic INT8 quantization via ONNX Runtime's \texttt{quantize\_dynamic} reduces the model to 19\,MB (30.4\% of FP32), a $3.2\times$ compression with minimal quality loss.
 
     \item \textbf{FP16 Variant}: An optional FP16 model ($\sim$30\,MB) is produced as a fallback for platforms where INT8 inference is slower than FP16.
 \end{enumerate}
@@ -518,16 +537,17 @@ The quantized ONNX model is deployed via Sherpa-ONNX, which provides:
 \begin{table}[ht]
 \centering
 \scriptsize
-\begin{tabular}{@{}llrr@{}}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{1.2cm}p{2.1cm}rr@{}}
 \toprule
-\textbf{Target} & \textbf{Runtime} & \textbf{Latency} & \textbf{RTF} \\
+\textbf{Target} & \textbf{Runtime} & \textbf{Lat.} & \textbf{RTF} \\
 \midrule
-Desktop (CPU) & ONNX RT (1 thread) & 307\,ms & 0.095 \\
-Desktop (CPU) & Sherpa-ONNX (4 threads) & 201\,ms & 0.074 \\
-Browser & WASM (Chromium) & 1,360\,ms & 0.472 \\
+Desktop & ONNX RT (1 thr.) & 307\,ms & 0.095 \\
+Desktop & Sherpa-ONNX (4 thr.) & 201\,ms & 0.074 \\
+Browser & WASM (Chromium) & 1360\,ms & 0.472 \\
 \bottomrule
 \end{tabular}
-\caption{Measured inference latency and real-time factor for a 10-word sentence (``The quick brown fox jumps over the lazy dog.''). Desktop benchmarks on Intel Xeon @ 2.20\,GHz. Browser benchmark on Chromium via Cloudflare Pages. RTF $<$ 1.0 means faster than real-time.}
+\caption{Measured inference latency and RTF for a 10-word sentence. Desktop: Intel Xeon @ 2.20\,GHz. Browser: Chromium via Cloudflare Pages. RTF $<$ 1.0 = faster than real-time.}
 \label{tab:deployment}
 \end{table}
 
@@ -536,20 +556,21 @@ Table~\ref{tab:inference_detail} shows how inference scales with input length ac
 \begin{table}[ht]
 \centering
 \scriptsize
-\begin{tabular}{@{}llrrr@{}}
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}p{1.4cm}lrrr@{}}
 \toprule
-\textbf{Runtime} & \textbf{Input} & \textbf{Gen (ms)} & \textbf{Audio (s)} & \textbf{RTF} \\
+\textbf{Runtime} & \textbf{Input} & \textbf{Gen} & \textbf{Audio} & \textbf{RTF} \\
 \midrule
-\multirow{3}{*}{ONNX RT} & Short (2 words) & 127 & 0.84 & 0.117 \\
- & Medium (10 words) & 307 & 3.03 & 0.095 \\
- & Long (30 words) & 722 & 7.86 & 0.089 \\
+\multirow{3}{*}{\parbox{1.4cm}{ONNX RT\\(1 thread)}} & 2 words & 127\,ms & 0.84\,s & 0.117 \\
+ & 10 words & 307\,ms & 3.03\,s & 0.095 \\
+ & 30 words & 722\,ms & 7.86\,s & 0.089 \\
 \midrule
-\multirow{3}{*}{Sherpa-ONNX} & Short (2 words) & 67 & 0.88 & 0.069 \\
- & Medium (10 words) & 201 & 2.75 & 0.074 \\
- & Long (30 words) & 635 & 8.37 & 0.077 \\
+\multirow{3}{*}{\parbox{1.4cm}{Sherpa-ONNX\\(4 threads)}} & 2 words & 67\,ms & 0.88\,s & 0.069 \\
+ & 10 words & 201\,ms & 2.75\,s & 0.074 \\
+ & 30 words & 635\,ms & 8.37\,s & 0.077 \\
 \bottomrule
 \end{tabular}
-\caption{Inference latency vs.\ input length. All measurements averaged over 3 runs on CPU. RTF improves with longer inputs for ONNX Runtime (fixed overhead amortized), while Sherpa-ONNX maintains consistent RTF across lengths.}
+\caption{Inference latency vs.\ input length (avg.\ of 3 runs, CPU). RTF improves with longer inputs for ONNX RT; Sherpa-ONNX stays consistent.}
 \label{tab:inference_detail}
 \end{table}
 
@@ -559,12 +580,14 @@ Table~\ref{tab:inference_detail} shows how inference scales with input length ac
 
 \begin{table}[ht]
 \centering
-\begin{tabular}{@{}lrr@{}}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{2.0cm}rr@{}}
 \toprule
-\textbf{Resource} & \textbf{Duration} & \textbf{Cost (USD)} \\
+\textbf{Resource} & \textbf{Dur.} & \textbf{Cost} \\
 \midrule
-GCP A100$\times$2 spot & $\sim$3.0\,hrs & \$13.50 \\
-Boot disk (200\,GB SSD) & $\sim$3.0\,hrs & \$0.05 \\
+A100$\times$2 spot & 3.0\,hrs & \$13.50 \\
+Boot disk (200\,GB) & 3.0\,hrs & \$0.05 \\
 Network egress & $<$1\,GB & \$0.00 \\
 \midrule
 \textbf{Total} & & \textbf{\$13.55} \\
@@ -583,7 +606,7 @@ For comparison, training on a single T4 GPU would cost $\sim$\$5 but take $\sim$
 \begin{table}[ht]
 \centering
 \scriptsize
-\begin{tabular}{@{}p{2.2cm}p{3.8cm}@{}}
+\begin{tabular}{@{}p{1.8cm}p{2.4cm}@{}}
 \toprule
 \textbf{Risk} & \textbf{Mitigation} \\
 \midrule
@@ -603,7 +626,7 @@ DDP issues & Fork-based DDP via \texttt{ddp} strategy. \\
 \section{Final Training Results}
 \label{sec:final}
 
-Training completed all 10,000 steps across 49 epochs. The final checkpoint (\texttt{epoch=49-step=10000.ckpt}, 807\,MB) was exported to ONNX (61\,MB FP32).
+Training completed all 10,000 steps across 49 epochs. The final checkpoint (807\,MB) was exported to ONNX (61\,MB FP32).
 
 \begin{table}[ht]
 \centering
@@ -630,10 +653,10 @@ The generator loss continued declining through the end of training, dropping fro
 Exporting the final checkpoint required addressing two compatibility issues:
 
 \begin{enumerate}
-    \item \textbf{PyTorch 2.6 serialization}: \texttt{torch.load} now defaults to \texttt{weights\_only=True}, which rejects Piper checkpoints containing \texttt{pathlib.PosixPath}. Fix: add \texttt{PosixPath} to safe globals before loading.
+    \item \textbf{PyTorch 2.6 serialization}: \texttt{torch.load} now defaults to \texttt{weights\_only\allowbreak{}=True}, which rejects Piper checkpoints containing \texttt{pathlib.\allowbreak{}PosixPath}. Fix: add it to safe globals before loading.
     \item \textbf{Missing \texttt{onnx} package}: The GCP Deep Learning VM had PyTorch but not the \texttt{onnx} Python package. A simple \texttt{pip install onnx} resolved this.
 
-    \item \textbf{Missing ONNX metadata}: Piper's \texttt{export\_onnx} does not embed the metadata fields that Sherpa-ONNX expects. Specifically, Sherpa-ONNX reads \texttt{sample\_rate}, \texttt{add\_blank}, \texttt{n\_speakers}, \texttt{voice}, and \texttt{comment} from the ONNX model's metadata properties. Without these, the model loads but inference fails at phonemization time with ``Failed to set eSpeak-ng voice.'' The fix is to patch the ONNX file after export:
+    \item \textbf{Missing ONNX metadata}: Piper's export does not embed the metadata fields that Sherpa-ONNX expects (\texttt{sample\_rate}, \texttt{add\_blank}, \texttt{n\_speakers}, \texttt{voice}, \texttt{comment}). Without these, inference fails with ``Failed to set eSpeak-ng voice.'' The fix is to patch the ONNX file after export:
 
 \begin{lstlisting}[language=Python,basicstyle=\ttfamily\scriptsize]
 import onnx
