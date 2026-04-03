@@ -1,0 +1,20 @@
+data/
+training/
+checkpoints/
+output/*.onnx
+output/*.json
+*.wav
+__pycache__/
+*.pyc
+.env
+
+# wasm build artifacts (too large for git)
+web/sherpa-onnx-wasm-main-tts.data
+web/sherpa-onnx-wasm-main-tts.wasm
+web/model/
+
+# latex build artifacts
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc

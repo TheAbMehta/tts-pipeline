@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TTS Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 80px 1rem 2rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 560px;
+      width: 100%;
+      animation: fadeIn 1.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 28px;
+      font-weight: 400;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    textarea {
+      width: 100%;
+      height: 110px;
+      padding: 14px 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      color: #fff;
+      font-size: 0.9rem;
+      font-family: inherit;
+      font-weight: 400;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.3s, background 0.3s;
+      line-height: 1.5;
+    }
+    textarea::placeholder { color: rgba(255,255,255,0.2); }
+    textarea:focus {
+      border-color: rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.06);
+    }
+    textarea:disabled { opacity: 0.3; }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    button#speak {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 10px;
+      background: #fff;
+      color: #000;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      letter-spacing: -0.01em;
+    }
+    button#speak:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(255,255,255,0.15);
+    }
+    button#speak:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    button#speak:disabled {
+      opacity: 0.2;
+      cursor: not-allowed;
+    }
+
+    .speed-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.4);
+      font-weight: 500;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 90px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .speed-val {
+      min-width: 2.5em;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,0.5);
+    }
+
+    #status {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s ease;
+    }
+    #status.loading {
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.5);
+    }
+    #status.ready {
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.6);
+    }
+    #status.error {
+      background: rgba(255,80,80,0.08);
+      color: rgba(255,120,120,0.9);
+    }
+    #status.generating {
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.5);
+    }
+
+    .spinner {
+      width: 12px; height: 12px;
+      border: 1.5px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .stats {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.25);
+      font-variant-numeric: tabular-nums;
+      font-weight: 400;
+    }
+
+    .progress-bar {
+      margin-top: 12px;
+      height: 3px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.active { display: block; }
+    .progress-bar .fill {
+      height: 100%;
+      background: #fff;
+      width: 0%;
+      transition: width 0.3s ease;
+      border-radius: 2px;
+    }
+
+    .audio-section {
+      margin-top: 16px;
+    }
+    audio {
+      width: 100%;
+      border-radius: 10px;
+      height: 40px;
+    }
+    audio::-webkit-media-controls-panel {
+      background: rgba(255,255,255,0.06);
+    }
+
+    .kbd {
+      display: inline-block;
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.2);
+      margin-top: 20px;
+      font-weight: 400;
+    }
+    .kbd kbd {
+      font-family: inherit;
+      padding: 2px 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+      font-size: 0.65rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Text to Speech</h1>
+    <p class="subtitle">VITS model running entirely in your browser via WebAssembly</p>
+
+    <div class="card">
+      <textarea id="text" placeholder="Type something to speak..." disabled>The quick brown fox jumps over the lazy dog.</textarea>
+
+      <div class="controls">
+        <button id="speak" disabled>Speak</button>
+        <div class="speed-group">
+          <label for="speed">Speed</label>
+          <input type="range" id="speed" min="0.5" max="2.0" step="0.1" value="1.0">
+          <span class="speed-val" id="speed-val">1.0x</span>
+        </div>
+      </div>
+
+      <div class="progress-bar" id="progress">
+        <div class="fill" id="progress-fill"></div>
+      </div>
+
+      <div id="status" class="loading">
+        <span class="spinner"></span>
+        <span id="status-text">Loading model...</span>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="audio-section">
+        <audio id="audio" controls style="display:none"></audio>
+      </div>
+    </div>
+
+    <p class="kbd"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to speak</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head><title>Debug TTS</title></head>
+<body style="background:#000;color:#0f0;font-family:monospace;padding:20px">
+<h2>TTS Debug Console</h2>
+<pre id="log"></pre>
+<script>
+const log = document.getElementById('log');
+function addLog(msg) {
+  log.textContent += new Date().toISOString().substring(11,23) + ' ' + msg + '\n';
+}
+
+addLog('crossOriginIsolated: ' + self.crossOriginIsolated);
+
+// Use an inline worker that wraps everything in try/catch
+const workerCode = `
+let tts = null;
+self.Module = {
+  locateFile: function(path, scriptDirectory) {
+    scriptDirectory = scriptDirectory || "";
+    self.postMessage({type:'debug', msg:'locateFile: ' + path});
+    return scriptDirectory + path;
+  },
+  setStatus: function(status) {
+    self.postMessage({type:'debug', msg:'setStatus: ' + status});
+  },
+  onRuntimeInitialized: function() {
+    self.postMessage({type:'debug', msg:'onRuntimeInitialized called!'});
+    try {
+      tts = createOfflineTts(self.Module);
+      self.postMessage({
+        type: 'sherpa-onnx-tts-ready',
+        numSpeakers: tts.numSpeakers,
+      });
+    } catch(e) {
+      self.postMessage({type:'debug', msg:'createOfflineTts error: ' + e.message + '\\n' + e.stack});
+    }
+  },
+};
+
+self.postMessage({type:'debug', msg:'About to importScripts sherpa-onnx-wasm-main-tts.js'});
+try {
+  importScripts('sherpa-onnx-wasm-main-tts.js');
+  self.postMessage({type:'debug', msg:'sherpa-onnx-wasm-main-tts.js loaded OK'});
+} catch(e) {
+  self.postMessage({type:'debug', msg:'FAILED to load wasm-main-tts.js: ' + e.message});
+}
+
+self.postMessage({type:'debug', msg:'About to importScripts sherpa-onnx-tts.js'});
+try {
+  importScripts('sherpa-onnx-tts.js');
+  self.postMessage({type:'debug', msg:'sherpa-onnx-tts.js loaded OK'});
+} catch(e) {
+  self.postMessage({type:'debug', msg:'FAILED to load tts.js: ' + e.message});
+}
+
+self.onmessage = (e) => {
+  if (e.data.type === 'generate' && tts) {
+    try {
+      const audio = tts.generate({text: e.data.text, sid: 0, speed: 1.0});
+      self.postMessage({type:'sherpa-onnx-tts-result', samples: audio.samples, sampleRate: tts.sampleRate}, [audio.samples.buffer]);
+    } catch(err) {
+      self.postMessage({type:'debug', msg:'generate error: ' + err.message});
+    }
+  }
+};
+`;
+
+const blob = new Blob([workerCode], {type: 'application/javascript'});
+const worker = new Worker(URL.createObjectURL(blob));
+
+worker.onmessage = (e) => {
+  const msg = e.data;
+  if (msg.type === 'debug') {
+    addLog('[worker] ' + msg.msg);
+  } else if (msg.type === 'sherpa-onnx-tts-ready') {
+    addLog('MODEL READY! speakers=' + msg.numSpeakers);
+    addLog('Generating test...');
+    worker.postMessage({type:'generate', text:'Hello world'});
+  } else if (msg.type === 'sherpa-onnx-tts-result') {
+    addLog('GOT AUDIO! samples=' + msg.samples.length + ' rate=' + msg.sampleRate);
+  } else {
+    addLog('[worker] ' + JSON.stringify(msg).substring(0,300));
+  }
+};
+
+worker.onerror = (e) => {
+  addLog('WORKER ERROR: ' + e.message + ' @ ' + e.filename + ':' + e.lineno);
+};
+
+addLog('Worker started...');
+setTimeout(() => addLog('60s timeout - still waiting'), 60000);
+</script>
+</body>
+</html>
