@@ -93,8 +93,10 @@ function initWorker() {
         ready = true;
         textEl.disabled = false;
         speakBtn.disabled = false;
-        setStatus('ready', `Model ready (${msg.numSpeakers} speaker${msg.numSpeakers !== 1 ? 's' : ''})`, false);
         showProgress(null);
+        setTimeout(() => {
+          setStatus('ready', `Model ready (${msg.numSpeakers} speaker${msg.numSpeakers !== 1 ? 's' : ''})`, false);
+        }, 100);
         break;
 
       case 'sherpa-onnx-tts-generation-progress':
