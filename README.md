@@ -1,5 +1,9 @@
 # TTS Pipeline: Train a Voice, Run It Anywhere
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19426354.svg)](https://doi.org/10.5281/zenodo.19426354)
+![Zenodo Views](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fzenodo.org%2Fapi%2Frecords%2F19426354&query=%24.stats.version_views&label=views&color=blue)
+![Zenodo Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fzenodo.org%2Fapi%2Frecords%2F19426354&query=%24.stats.version_downloads&label=downloads&color=green)
+
 A complete pipeline for training a neural text-to-speech voice from scratch and deploying it in a web browser, on a phone, or on a Raspberry Pi. No cloud API calls at inference time. Your model, your hardware, your data.
 
 Built on [VITS](https://arxiv.org/abs/2106.06103) (via [Piper](https://github.com/rhasspy/piper)) and [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx) for cross-platform inference.
