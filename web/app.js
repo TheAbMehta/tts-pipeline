@@ -84,10 +84,9 @@ function initWorker() {
 
   worker.onmessage = (e) => {
     const msg = e.data;
-
     switch (msg.type) {
       case 'sherpa-onnx-tts-progress':
-        setStatus('loading', msg.status || 'Loading model...', true);
+        if (!ready) setStatus('loading', msg.status || 'Loading model...', true);
         break;
 
       case 'sherpa-onnx-tts-ready':
